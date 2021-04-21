@@ -4,8 +4,8 @@ import time
 from decimal import *
 
 import requests
-
 from leverj_ordersigner import futures, spot
+
 from util import bytes_to_hexstring, round_with_precision, sign, to_vrs
 
 ENDPOINTS = {
@@ -22,6 +22,8 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 handler = logging.StreamHandler()
 logger.addHandler(handler)
+
+MAX_INDEX_VARIANCE = 0.0085
 
 
 class Client():
@@ -105,37 +107,82 @@ class Client():
         else:
             return None
 
-    def get_margin_per_fraction(self, orderInstrument, side, price):
-        max_leverage = orderInstrument['maxLeverage'] - 50 - 1
+    def get_orders(self, accountId, apiKey, secret):
+        nonce = int(time.time()*1000)
+        signature = sign(str(nonce), secret)
+        v, r, s = to_vrs(signature)
+
+        auth_header = f"NONCE {accountId}.{self.config.get('apiKey')}"\
+            f".{v}"\
+            f".{bytes_to_hexstring(r)}"\
+            f".{bytes_to_hexstring(s)}"
+
+        headers = {"Authorization": auth_header, "Nonce": str(
+            nonce), "Content-Type": "application/json"}
+        #logging.debug(f'headers: {headers}')
+        response = requests.get(
+            self.api_url+self.ENDPOINTS.get('ORDER'), headers=headers)
+        logging.debug(f'get_balances, response: {response.content}')
+        if response.status_code == 200:
+            return json.loads(response.content.decode('utf-8'))
+        else:
+            return None
+
+    def get_order_details(self, orderId, accountId, apiKey, secret):
+        nonce = int(time.time()*1000)
+        signature = sign(str(nonce), secret)
+        v, r, s = to_vrs(signature)
+
+        auth_header = f"NONCE {accountId}.{self.config.get('apiKey')}"\
+            f".{v}"\
+            f".{bytes_to_hexstring(r)}"\
+            f".{bytes_to_hexstring(s)}"
+
+        headers = {"Authorization": auth_header, "Nonce": str(
+            nonce), "Content-Type": "application/json"}
+        #logging.debug(f'headers: {headers}')
+        response = requests.get(
+            self.api_url+self.ENDPOINTS.get('ORDER')+"/"+orderId, headers=headers)
+        logging.debug(f'get_orders, response: {response.content}')
+        if response.status_code == 200:
+            return json.loads(response.content.decode('utf-8'))
+        else:
+            return None
+
+    def get_margin_per_fraction(self, orderInstrument, price, leverage):
         estimated_entry_price = price
+        max_leverage = orderInstrument['maxLeverage']
+        if leverage > max_leverage:
+            self.logger.info(
+                f'You have specified a leverage of {leverage} but the max leverage allowed on this instrument is {max_leverage}.')
         base_significant_digits = orderInstrument['baseSignificantDigits']
         decimals = orderInstrument['quote']['decimals']
         multiplier = Decimal(
             pow(Decimal(10), Decimal(decimals - base_significant_digits)))
         intermediate_value = Decimal((Decimal(
-            estimated_entry_price) * multiplier) / Decimal(max_leverage)).to_integral_exact()
-        logging.debug(f'intermediate_value: {intermediate_value}')
+            estimated_entry_price) * multiplier) / Decimal(leverage)).to_integral_exact()
         return int(Decimal(intermediate_value) * Decimal(pow(Decimal(10), Decimal(base_significant_digits))))
 
-    def create_futures_order(self, side, price, triggerPrice, quantity, orderInstrument, orderAccountId, originatorApiKey, secret):
+    def create_futures_order(self, side, price, triggerPrice, quantity, orderInstrument, orderType, leverage, orderAccountId, originatorApiKey, secret, reduceOnly=False):
         price_precision = orderInstrument.get('quoteSignificantDigits')
         quantity_precision = orderInstrument.get('baseSignificantDigits')
+        # default leverage is set to 1.0 which means you aren't using any leverage. If you want 5K DAI position to control 10K DAI worth of BTC, use leverage of 2
         order = {
             'accountId': orderAccountId,
             'originator': originatorApiKey,
             'instrument': orderInstrument['id'],
             'price': round_with_precision(price, price_precision),
             'quantity': round_with_precision(quantity, quantity_precision),
-            'marginPerFraction': '11316900000000000000000',
+            'marginPerFraction': str(self.get_margin_per_fraction(orderInstrument, price, leverage)),
             'side': side,
-            'isPostOnly': False,
-            'reduceOnly': False,
-            'orderType': 'LMT',
-            # int(time.time()*1000000),  # 1596251419312885
-            'timestamp':  1596734143144171,
+            'orderType': orderType,
+            'timestamp': int(time.time()*1000000),
             'quote': orderInstrument['quote']['address'],
+            'isPostOnly': False,
+            'reduceOnly': reduceOnly,
             'clientOrderId': 1,
-            'triggerPrice': triggerPrice
+            'triggerPrice': round_with_precision(triggerPrice, price_precision),
+            'indexSanity': MAX_INDEX_VARIANCE
         }
         order['signature'] = futures.sign_order(
             order, orderInstrument, secret)
