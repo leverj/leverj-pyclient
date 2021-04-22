@@ -30,6 +30,11 @@ class WebsocketClient:
         self.sio.on("order_closed", self.on_order_closed)
         self.sio.on("order_cancelled", self.on_order_cancelled)
         self.sio.on("order_execution", self.on_order_execution)
+        self.sio.on("account_balance", self.on_account_balance)
+        self.sio.on("position", self.on_position)
+        self.sio.on("liquidation", self.on_liquidation)
+        self.sio.on("adl", self.on_adl)
+        self.sio.on("funds_transfer", self.on_funds_transfer)
         self.start()
 
     def connect(self):
@@ -49,6 +54,9 @@ class WebsocketClient:
 
     def on_register(self, data):
         print(f'on_register: {data}')
+
+    def on_account_balance(self, data):
+        print(f'on_account_balance: {data}')
 
     def on_order_add(self, data):
         print(f'on_order_add: {data}')
@@ -85,6 +93,18 @@ class WebsocketClient:
 
     def on_order_execution(self, data):
         print(f'on_order_execution: {data}')
+
+    def on_position(self, data):
+        print(f'on_position: {data}')
+
+    def on_liquidation(self, data):
+        print(f'on_liquidation: {data}')
+
+    def on_adl(self, data):
+        print(f'on_adl: {data}')
+
+    def on_funds_transfer(self, data):
+        print(f'on_funds_transfer: {data}')
 
     def start(self):
         self.logger.debug(f'starting websocket client')

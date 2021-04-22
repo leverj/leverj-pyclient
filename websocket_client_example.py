@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
     # call relevant method to generate request
     # use protected_endpoint_request util method to generate an authenticated request
-    request = cancel_order(uuids, originator_credentials)
+    request = create_order(originator_credentials)
 
     # protected_endpoint_request util method adds required signature headers and formats the request
     protected_request_payload = protected_endpoint_request(
