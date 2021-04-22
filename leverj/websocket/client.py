@@ -15,6 +15,7 @@ class WebsocketClient:
         self.sio = socketio.Client(logger=False, engineio_logger=False)
         self.sio.on("connect", self.connect)
         self.sio.on("disconnect", self.disconnect)
+        self.sio.on("register", self.on_register)
         #self.sio.on("index", self.on_index)
         self.sio.on("order_add", self.on_order_add)
         self.sio.on("order_del", self.on_order_del)
@@ -45,6 +46,9 @@ class WebsocketClient:
 
     def on_orderbook(self, data):
         print(f'on_orderbook data: {data}')
+
+    def on_register(self, data):
+        print(f'on_register: {data}')
 
     def on_order_add(self, data):
         print(f'on_order_add: {data}')
