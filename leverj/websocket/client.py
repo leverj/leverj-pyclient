@@ -24,7 +24,8 @@ class WebsocketClient:
         self.sio.on("order_del_all", self.on_order_del_all)
         self.sio.on("order_update", self.on_order_update)
         self.sio.on("order_patch", self.on_order_patch)
-        #self.sio.on("orderbook", self.on_orderbook)
+        self.sio.on("orderbook", self.on_orderbook)
+        self.sio.on("difforderbook", self.on_difforderbook)
         self.sio.on("server_time", self.on_server_time)
         self.sio.on("auth_error", self.on_auth_error)
         self.sio.on("order_closed", self.on_order_closed)
@@ -51,6 +52,9 @@ class WebsocketClient:
 
     def on_orderbook(self, data):
         print(f'on_orderbook data: {data}')
+
+    def on_difforderbook(self, data):
+        print(f'on_difforderbook data: {data}')
 
     def on_register(self, data):
         print(f'on_register: {data}')
